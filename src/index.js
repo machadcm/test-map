@@ -8,14 +8,29 @@ import { game } from "./game";
 
 //document.getElementById("map").innerHTML = m.display();
 
-var g = new game();
-g.init();
+  // force clease console
+  console.clear();
 
-document.getElementById("app").innerHTML = `
-<h1>Hello Vanilla!</h1>
-<div>
- Test page...
+
+  if (_game === undefined) {
+    var _game = new game();
+
+
+document.getElementById("screen").innerHTML = `
+<div id="container" class="container">
+  <div>
+  <canvas id="canvas"></canvas>
+  </div>
+  <div class="header" id="header"></div>
+  <div id="bottom"></div>
 </div>
 `;
-//<!--${m.version()}-->
-//`;
+
+    _game.init();
+    _game.displayHeader();
+    _game.displayCity();
+
+    //document.getElementById("header").innerHTML = "header";
+    document.getElementById("bottom").innerHTML = "footer";
+
+}

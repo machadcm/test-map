@@ -5,30 +5,52 @@ const INITIAL_HAPINESS = 1;
 const HUMAN = 0;
 const AUTO = 1;
 
-export default class city {
+export const CITY = 0x01;
+export const MONESTERY = 0x02;
+export const HOTPOST = 0x04;
+export const KEEP = 0x08;
+
+export class city {
   //
   // constuctor
-  constructor(name, type, posx, posy) {
-    this._name = name;
-    this._type = type;
-    this._coor["x"] = posx;
-    this._coor["y"] = posx;
-    this._posy = posy;
+  constructor(player, name, tribe, type, pos) {
+    this._info = {
+      player: player,
+      name: name,
+      tribe: tribe,
+      type: type,
+      coordinates: pos
+    };
     this._population = {
       nobles: 0,
       cleric: 0,
       craftsmen: 0,
+      merchants: 0,
       pleasant: 0,
       servent: 0
     };
-    this._level = INITIAL_LEVEL;
-    this._buldings = [];
-    this._hapiness = INITIAL_HAPINESS;
-    this._health = 0;
-    this._religion = 0;
-    this._security = 0;
-    this._goods = { production: [], supply: [], demand: [], trade: [] };
+    this._level = {
+      tax: 0,
+      level: INITIAL_LEVEL,
+      hapiness: INITIAL_HAPINESS,
+      health: 0,
+      religion: 0,
+      security: 0
+    };
+    this._buildings = [];
+    this._goods = {
+      stock: {},
+      production: {},
+      supply: {},
+      demand: {},
+      import: {},
+      export: {},
+      trade: []
+    };
   }
+
+
+  coordinates() { return this._info.coordinates; }
 
   // calculate health level
   health() {
@@ -37,8 +59,8 @@ export default class city {
 
   // calculate happines level
   happiness() {
-    // Happiness = security * tax * health * religion
-    this._hapiness = this._security * this._tax * this._health * this._religion;
+    // Happiness = security * health * religion * 1/tax 
+    this._level.hapiness = this._level.security * this._level.health * this._level.religion * ( this._level.tax ? 1/this._level.tax : 1);
   }
 
   // calculate security
@@ -49,29 +71,26 @@ export default class city {
   // add new building to
   building(buildtype) {}
 
-  production() {}
-
-  demand() {
-    this._buldings.forEach(item => {
-      item.demand();
-    });
-  }
-
-  supply() {
-    this._buldings.forEach(item => {
-      item.supply();
-    });
-  }
-
+  // calculate city growth
   growth() {}
 
   auto() {}
 
   turn() {
     this.growth();
+
+    // add imports to trade
+
+    // foreach building calculate production with existing stock
     this._buldings.forEach(item => {
-      item.turn();
+      item.turn(this._goods.stock);
     });
+    // for each building calculate demand and supply at current procuction capacity
+    this._buildings.forEach(item => {
+      item.production(this._goods.supply, this._goods.demand);
+    });
+
+    // calculate trade list (trade = stock - demand )
   }
 }
 
@@ -208,64 +227,145 @@ Logging Town
 */
 
 const buldings = {
-  farm: {
-    level: 1,
-    turns: 1,
-    demand: {},
-    production: { food: 1 },
-    workers: 100
-  },
-  mill: {
-    level: 1,
-    turns: 1,
-    demand: {},
-    production: { food: 1 },
-    workers: 100
-  }
+  farm: { level: 1, turns: 1, cost: 0, demand: {}, supply: { food: 1 }, social: {}, workers: 100 },
+  mill: { level: 1, turns: 1, cost: 1, demand: {}, supply: { food: 1 }, social: {}, workers: 100 }
 };
 
 export class building {
-  constructor(type, city) {
-    this._type = type;
-    this._city = city;
-    this._health = 100;
-    this._workers = building[this._type].workers;
-    this._build = building[this._type].turns;
-  }
-
-  demand() {
-    if (!this._build) {
-      // demaind is based on building level, workers and building health
-      var goods = {};
-      for (var demand in building[this._type].demand) {
-        var racio =
-          building[this._type].level *
-          (this.workers / building[this._type].workers) *
-          (this._health / 100);
-        for (var key in Object.keys(demand))
-          goods[key] = building[this._type].demand[key] * racio;
-      }
-      this._city.updateDemand(goods);
+  constructor(player, name, type, tribe, pos) {
+    this._info = {
+      player: player,
+      name: name,
+      tribe: tribe,
+      type: type,
+      coordinates: pos
+    };
+    this._status = {
+      build: building[this._info.type].turns,
+      level: 0,
+      health: 0,
+      workers: 0,
+      maxworkers: building[this._info.type].workers
     }
   }
 
-  supply() {
-    if (!this._build) {
-      // supply is based on existing demand, building level, workers and health
-      var goods = {};
-      this._city.updateSupply(goods);
+  // return building information
+  info() { return(this._info); }
+
+  // return building status
+  status() { return(this._status); }
+
+  // set workers
+  workers(wrk) { this._status.workers = wrk; }
+
+  // set current production needs and outcome
+  social(scl) { 
+    if (this._status.level) {
+      var productionratio = this._status.level * this._status.health * this._status.workers / (building[this._type].workers * this._status.level)
+      // set supply and demand lists
+      for( var item in building[this._type].social ) 
+      scl[item] += this.building[this._type].social[item] * productionratio; 
     }
   }
 
-  turn() {
-    if (this._build) this._build--;
+  // set current production needs and outcome
+  production(supply, demand) { 
+    if (this._status.level) {
+      var productionratio = this._status.level * this._status.health * this._status.workers / (building[this._type].workers * this._status.level)
+      // set supply and demand lists
+      for( var item in building[this._type].demand ) 
+        demand[item] += this.building[this._type].demand[item] * productionratio; 
+      for( item in building[this._type].supply ) 
+        supply[item] += this.building[this._type].supply[item] * productionratio; 
+    }
+  }
+
+  // building turn
+  turn(stock) {
+    // check if in upgrade
+    if ( this._build > 0 ) this._build--;
     else {
-      let x = 1;
-      x++;
+      if( this._build === 0 ) {
+        this._status.level ++;
+        this._maxworkers = building[this._info.type].workers * this._status.level;
+        this._build = -1;
+      }
     }
-    // x = {a:1,b:2}
-    //Object.keys(x)
-    //for(var y in x) console.log(y);
-    //x['a']
+    
+    if(this._status.level) {
+      // check if demand exists on stock
+       var productionratio = this._status.level * this._status.health * this._status.workers / (building[this._type].workers * this._status.level)
+      // remove from stock
+      // add production to stock
+
+    }
+
+  }
+}
+
+const MAP_MASK = 0x00f;
+const MAP_HIDDEN = 0x010;
+const MAP_IDLE = 0x020;
+const MAP_ACTIVE = 0x040;
+
+export class player {
+  // constructor
+  constructor(playerid, name, human, map, cities, armies, html) {
+    this._id = playerid;
+    this._name = name;
+    this._tribe = 0;
+    this._human = human;
+    this._map = map;
+    this._cities = cities;
+    this._armies = armies;
+    // set mask map
+    this._mapmask = this._map.createMask();
+    this._gold = 1;
+  }
+
+  id() { return this._id; }
+
+  tribe() { return this._tribe; }
+
+  // define map mask
+  mask() {
+    // reset map mask (active to idle)
+    this._map.reset(this._mapmask);
+    // map cities
+    for (var city of this._cities) {
+      if (city.player() === this._id) {
+        this._map.mask(this._mapmask, city.coordinates(), 3); //city.visible(),
+      }
+    }
+    // map mask armies
+    for (var army in this._armies)
+      if (army.payer === this._id)
+        this._map.mask(
+          this._map.map(),
+          this._mapmask,
+          army.pos(),
+          army.visible()
+        );
+  }
+
+  // define capital
+  capital(city) {
+    this._capital = city;
+  }
+
+  // turn
+  turn() {
+    // set map mask
+    //this.mask();
+    //console.log("prepare to display")
+    // if humman player
+    if (this._human) {
+      this._map.prepare(this._id, this._mapmask, this._cities, this._armies);
+      //console.log("player: " + this._id + ", human: " + this._human);
+      //console.log(this._mapmask[0][0]);
+      // set map mask
+      //this.mask();
+      this._map.display(this._capital.coordinates());
+    }
   }
 }

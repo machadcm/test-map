@@ -71,41 +71,48 @@ export class spritesheet {
 const IMAGE_FILE=0x01
 const IMAGE_SPRITE=0x02
 const IMAGE_BOX=0x03
+const IMAGE_HEX_R=0x04
+const IMAGE_HEX_Q=0x05
+
 
 export class sprite {
   // constructor
   // usage: sprite(<context>,<sprinte>,<index>)
   //        sprite(<context>,<filename>)
   //        sprite(<context>,<width>,<height>,<color>)
-  constructor(context, attr1, attr2=null, attr3=null) {
+  constructor(context, type, attr1, attr2=null, attr3=null) {
     if (context === undefined) {
       console.log("sprite: invalid context.");
-    } else if (attr1 === undefined ) {
+    } else if (type === undefined ) {
       console.log('sprite: invalid image file.')
     } else {
       this._context = context;
-      if( Number.isInteger(attr1) ){
-        this._type = IMAGE_BOX;
-        this._width = attr1;
-        this._heigth = attr2;
-        this._color = attr3;
-      } else if (attr1 instanceof spritesheet ) {
-        this._type = IMAGE_SPRITE;
-        this._image = attr2;
-        this._index = attr3;
-      } else {
-        this._type = IMAGE_FILE;
-        this._image = new Image();
-        this._image.src = attr1;
+      this._type = type;
+      switch(this._type) {
+        case IMAGE_SPRITE:
+          this._image = attr2;
+          this._index = attr3;
+          break;
+        case IMAGE_FILE:
+          this._image = new Image();
+          this._image.src = attr1;
+          break;    
+        case IMAGE_BOX:
+        case IMAGE_HEX_Q:
+        case IMAGE_HEX_R:
+          this._width = attr1;
+          this._height = attr2;
+          this._color = attr3;
+          break;
+        default:
+          break;
       }
     }
   }
-  //    if (pattern) {
-  //    this.pattern = this.context.createPattern(this.image, 'repeat');
   
   // draw function
   //
-  draw(x, y, width=null, height=null) {
+  draw(x, y, fog=false, zoom=1, width=null, height=null) {
     switch(this._type) {
       case IMAGE_SPRITE:
         this._image.draw(this._context,this._index,x,y,width,height);
@@ -115,9 +122,31 @@ export class sprite {
         break;
       case IMAGE_BOX:
         this._context.fillStyle = this._color;
-        this._context.fillRect(x,y,this._width,this._heigth);
+        this._context.fillRect(x,y,this._width,this._height);
         break;
-      default:
+      case IMAGE_HEX_R:
+        this._context.fillStyle = this._color;
+        this._context.beginPath();
+        this._context.moveTo(x, y + (0.25 * this._height * zoom) );
+        this._context.lineTo(x + (0.50 * this._width * zoom) , y);
+        this._context.lineTo(x + (this._width * zoom), y + (0.25 * this._height * zoom));
+        this._context.lineTo(x + (this._width * zoom), y + (0.75 * this._height * zoom));        
+        this._context.lineTo(x + (0.50 * this._width * zoom), y + (this._height * zoom));
+        this._context.lineTo(x, y + (0.75 * this._height * zoom));    
+        this._context.fill();
+        break;
+      case IMAGE_HEX_Q:
+          this._context.fillStyle = this._color;
+          this._context.beginPath();
+          this._context.moveTo(x, y+(this._height/2)*zoom );
+          this._context.lineTo(x + (this._width/4)*zoom, y);
+          this._context.lineTo(x + (3*this._width/4)*zoom, y);
+          this._context.lineTo(x + this._width*zoom, y + (this._height/2)*zoom);        
+          this._context.lineTo(x + (3*this._width/4)*zoom, y + this._height*zoom);
+          this._context.lineTo(x+(this._width/4)*zoom, y+this._height*zoom);    
+          this._context.fill();
+          break;
+          default:
         break;
     }
   }
@@ -127,11 +156,7 @@ export class sprite {
     this._context.save();
     this._context.translate(x, y);
     this._context.rotate((angle * Math.PI) / 180);
-    this._context.drawImage(
-      this._image,
-      -(this._image.width / 2),
-      -(this._image.height / 2)
-    );
+    this._context.drawImage(this._image, -(this._image.width / 2), -(this._image.height / 2));
     this._context.restore();
   }
 }
@@ -141,31 +166,31 @@ export class canvas {
     this._canvas = document.getElementById(canvasid);
     this._context = this._canvas.getContext("2d");
     if( width == null ) {
-      this._width = document.documentElement.clientWidth - 20;
-      this._heigth = document.documentElement.clientHeight - 120;
+      this._canvas.width  = window.innerWidth - 20;
+      this._canvas.height   = window.innerHeight - 40;
     } else {
-      this._width = width;
-      this._heigth = height;
+      this._canvas.width = width;
+      this._canvas.height = height;
     }
-    this._canvas.width = this._width;
-    this._canvas.height = this._heigth;
-
-    // set canvas width and height
-   /*
-    $(this.canvas).attr({ width: this.width, height: this.height });
-    $(this.canvas).attr({
-      style:
-        "width:" +
-        this.width +
-        "px;" +
-        "height:" +
-        this.height +
-        "px; border: 1px solid black;"
-    });
+  }
+  // resize canvas
+  resize() {
+    //console.log("Window: " + window.innerWidth + " - " + window.innerHeight);
+    /*
+    this._canvas.width  = window.innerWidth;
+    this._canvas.height   = window.innerHeight;
     */
+    this._canvas.width  = "400";
+    this._canvas.height   = "400"
   }
 
-  context() {
-    return this._context;
-  }
+  id() {return(this._canvas);}
+
+  context() { return this._context; }
+
+  width() { return this._canvas.width; }
+
+  height() { return this._canvas.height; }
+
+
 }
